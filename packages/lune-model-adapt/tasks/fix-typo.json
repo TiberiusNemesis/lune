@@ -1,0 +1,5 @@
+{
+	"prompt": "Fix the typo in the greeting string in greet.js so that greet(\"Ann\") returns \"Hello, Ann\".",
+	"cwd": "fixtures/typo",
+	"check": "node -e 'const { greet } = require(\"./greet.js\"); process.exit(greet(\"Ann\") === \"Hello, Ann\" ? 0 : 1)'"
+}

@@ -1,0 +1,24 @@
+{
+	"name": "lune-model-adapt",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Per-model system prompts, an apply_patch tool for GPT models, and an adaptive thinking-level policy, as pi extensions",
+	"type": "module",
+	"keywords": ["pi-package"],
+	"scripts": {
+		"test": "vitest --run",
+		"check": "tsgo --noEmit -p tsconfig.json && biome check .",
+		"effort-ab": "node scripts/effort-ab.ts"
+	},
+	"pi": {
+		"extensions": ["./extensions/model-prompts.ts", "./extensions/apply-patch.ts", "./extensions/effort-policy.ts"]
+	},
+	"dependencies": {
+		"diff": "8.0.4",
+		"typebox": "1.3.7"
+	},
+	"devDependencies": {
+		"@types/node": "22.19.19",
+		"vitest": "4.1.9"
+	}
+}

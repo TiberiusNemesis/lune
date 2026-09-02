@@ -1,0 +1,4 @@
+{
+	"prompt": "Create a file named hello.txt in the current directory containing exactly the word hello and nothing else.",
+	"check": "test \"$(cat hello.txt)\" = hello"
+}

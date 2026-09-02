@@ -1,0 +1,11 @@
+{
+	"extends": "../../tsconfig.json",
+	"include": [
+		"src/**/*",
+		"extensions/**/*",
+		"scripts/**/*",
+		"test/**/*.ts",
+		"vitest.config.ts",
+		"../coding-agent/src/utils/highlight-js.d.ts"
+	]
+}
