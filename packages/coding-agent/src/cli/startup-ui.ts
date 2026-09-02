@@ -20,6 +20,7 @@ import {
 import {
 	detectTerminalBackgroundFromEnv,
 	detectTerminalThemeForAuto,
+	getDefaultThemeName,
 	initTheme,
 	loadThemeFromPath,
 	parseAutoThemeSetting,
@@ -84,7 +85,9 @@ export async function createStartupTui(settingsManager: SettingsManager): Promis
 	setCapabilityOverrides(settingsManager.getTerminalCapabilityOverrides());
 	setRegisteredThemes(await loadStartupThemes(settingsManager));
 	const terminalTheme = detectTerminalBackgroundFromEnv().theme;
-	initTheme(resolveThemeSetting(settingsManager.getThemeSetting(), terminalTheme) ?? terminalTheme);
+	initTheme(
+		resolveThemeSetting(settingsManager.getThemeSetting(), terminalTheme) ?? getDefaultThemeName(terminalTheme),
+	);
 	setKeybindings(KeybindingsManager.create());
 	const ui: TUI = new TuiMainScreen(new ProcessTerminal(), settingsManager.getShowHardwareCursor(), getAgentDir());
 	ui.setClearOnShrink(settingsManager.getClearOnShrink());
@@ -101,7 +104,7 @@ async function applyDetectedStartupTheme(ui: TUI, settingsManager: SettingsManag
 	if (themeSetting && !parseAutoThemeSetting(themeSetting)) return;
 
 	const terminalTheme = await detectTerminalThemeForAuto({ ui, timeoutMs: 100 });
-	setTheme(resolveThemeSetting(themeSetting, terminalTheme) ?? terminalTheme);
+	setTheme(resolveThemeSetting(themeSetting, terminalTheme) ?? getDefaultThemeName(terminalTheme));
 	ui.invalidate();
 	ui.requestRender();
 }

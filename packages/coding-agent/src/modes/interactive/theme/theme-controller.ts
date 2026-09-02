@@ -4,6 +4,7 @@ import {
 	detectTerminalBackgroundFromEnv,
 	detectTerminalBackgroundTheme,
 	detectTerminalThemeForAuto,
+	getDefaultThemeName,
 	initTheme,
 	parseAutoThemeSetting,
 	resolveThemeSetting,
@@ -73,9 +74,10 @@ export class InteractiveThemeController {
 
 		const detection = await detectTerminalBackgroundTheme({ ui: this.ui, timeoutMs: 100 });
 		this.terminalTheme = detection.theme;
-		if (!this.applyThemeName(detection.theme).success) return;
+		const themeName = getDefaultThemeName(detection.theme);
+		if (!this.applyThemeName(themeName).success) return;
 		if (detection.confidence === "high") {
-			settingsManager.setTheme(detection.theme);
+			settingsManager.setTheme(themeName);
 			await settingsManager.flush();
 		}
 	}

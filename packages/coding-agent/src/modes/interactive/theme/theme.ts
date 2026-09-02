@@ -474,9 +474,11 @@ function getBuiltinThemes(): Record<string, ThemeJson> {
 		const themesDir = getThemesDir();
 		const darkPath = path.join(themesDir, "dark.json");
 		const lightPath = path.join(themesDir, "light.json");
+		const lunePath = path.join(themesDir, "lune.json");
 		BUILTIN_THEMES = {
 			dark: JSON.parse(stripBom(fs.readFileSync(darkPath, "utf-8"))) as ThemeJson,
 			light: JSON.parse(stripBom(fs.readFileSync(lightPath, "utf-8"))) as ThemeJson,
+			lune: JSON.parse(stripBom(fs.readFileSync(lunePath, "utf-8"))) as ThemeJson,
 		};
 	}
 	return BUILTIN_THEMES;
@@ -830,8 +832,13 @@ export async function detectTerminalThemeForAuto({
 	return (await backgroundThemePromise).theme;
 }
 
+/** lune is the default for dark terminals; light terminals keep the light theme. */
+export function getDefaultThemeName(terminalTheme: TerminalTheme): string {
+	return terminalTheme === "dark" ? "lune" : terminalTheme;
+}
+
 export function getDefaultTheme(): string {
-	return detectTerminalBackgroundFromEnv().theme;
+	return getDefaultThemeName(detectTerminalBackgroundFromEnv().theme);
 }
 
 // ============================================================================
@@ -929,7 +936,7 @@ function startThemeWatcher(): void {
 	stopThemeWatcher();
 
 	// Only watch if it's a custom theme (not built-in)
-	if (!currentThemeName || currentThemeName === "dark" || currentThemeName === "light") {
+	if (!currentThemeName || currentThemeName in getBuiltinThemes()) {
 		return;
 	}
 
