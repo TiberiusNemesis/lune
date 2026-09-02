@@ -43,6 +43,6 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("before_agent_start", (event) => ({
-		systemPrompt: `You are lune, a personal fork of the pi coding agent. Refer to yourself as lune.\n\n${event.systemPrompt}`,
+		systemPrompt: `You are lune, the Hexweavers coding agent, built on pi. Refer to yourself as lune.\n\n${event.systemPrompt}`,
 	}));
 }
