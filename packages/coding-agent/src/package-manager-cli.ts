@@ -23,6 +23,7 @@ import {
 	getSelfUpdateCommand,
 	getSelfUpdateUnavailableInstruction,
 	PACKAGE_NAME,
+	SELF_UPDATE_ENABLED,
 	type SelfUpdateCommand,
 	type SelfUpdatePackageTarget,
 	VERSION,
@@ -1020,6 +1021,14 @@ export async function handlePackageCommand(
 					}
 				}
 				if (updateTargetIncludesSelf(target)) {
+					if (!SELF_UPDATE_ENABLED) {
+						console.log(
+							chalk.dim(
+								`${APP_NAME} self-update is disabled for this build. Update from the source repo instead.`,
+							),
+						);
+						return true;
+					}
 					const managedInstallRoot = getActiveManagedInstallRoot();
 					if (managedInstallRoot && options.force) {
 						console.error(

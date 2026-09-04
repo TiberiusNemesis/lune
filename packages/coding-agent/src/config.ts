@@ -482,6 +482,7 @@ interface PackageJson {
 	piConfig?: {
 		name?: string;
 		configDir?: string;
+		selfUpdate?: boolean;
 	};
 }
 
@@ -499,6 +500,8 @@ export const APP_NAME: string = piConfigName || "pi";
 export const APP_TITLE: string = piConfigName ? APP_NAME : "⏾";
 export const CONFIG_DIR_NAME: string = pkg.piConfig?.configDir || ".pi";
 export const VERSION: string = pkg.version || "0.0.0";
+/** Forks distributed outside npm set piConfig.selfUpdate to false so updates never pull the upstream package. */
+export const SELF_UPDATE_ENABLED: boolean = pkg.piConfig?.selfUpdate !== false;
 
 // e.g., PI_CODING_AGENT_DIR or TAU_CODING_AGENT_DIR
 export const ENV_AGENT_DIR = `${APP_NAME.toUpperCase()}_CODING_AGENT_DIR`;
