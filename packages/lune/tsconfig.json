@@ -1,4 +1,4 @@
 {
 	"extends": "../../tsconfig.json",
-	"include": ["extensions/**/*"]
+	"include": ["extensions/**/*", "../coding-agent/src/utils/highlight-js.d.ts"]
 }

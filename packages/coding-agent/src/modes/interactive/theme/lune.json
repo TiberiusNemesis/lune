@@ -1,6 +1,7 @@
 {
 	"$schema": "https://raw.githubusercontent.com/earendil-works/pi/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
 	"name": "lune",
+	"appearance": "dark",
 	"vars": {
 		"cyan": "#c9d4ff",
 		"blue": "#7c8cff",
@@ -32,6 +33,7 @@
 		"text": "text",
 		"thinkingText": "gray",
 		"selectedBg": "selectedBg",
+		"scrollbarTrack": "darkGray",
 		"scrollbarThumb": "selectedBg",
 		"searchMatchBg": "selectedBg",
 		"searchMatchText": "text",

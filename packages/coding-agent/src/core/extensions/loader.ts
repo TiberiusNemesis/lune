@@ -7,24 +7,10 @@ import * as fs from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import * as _bundledPiAgentCore from "@earendil-works/pi-agent-core";
 import type { Provider } from "@earendil-works/pi-ai";
-import * as _bundledPiAiCompat from "@earendil-works/pi-ai/compat";
-import * as _bundledPiAiOauth from "@earendil-works/pi-ai/oauth";
-import * as _bundledPiAiProviders from "@earendil-works/pi-ai/providers/all";
 import type { KeyId } from "@earendil-works/pi-tui";
-import * as _bundledPiTui from "@earendil-works/pi-tui";
-import { createJiti } from "jiti/static";
-// Static imports of packages that extensions may use.
-// These MUST be static so Bun bundles them into the compiled binary.
-// The virtualModules option then makes them available to extensions.
-import * as _bundledTypebox from "typebox";
-import * as _bundledTypeboxCompile from "typebox/compile";
-import * as _bundledTypeboxValue from "typebox/value";
-import { CONFIG_DIR_NAME, getAgentDir, isBunBinary } from "../../config.ts";
-// NOTE: This import works because loader.ts exports are NOT re-exported from index.ts,
-// avoiding a circular dependency. Extensions can import from @earendil-works/pi-coding-agent.
-import * as _bundledPiCodingAgent from "../../index.ts";
+import type { createJiti } from "jiti";
+import { CONFIG_DIR_NAME, getAgentDir, isBunBinary, isBundledNode } from "../../config.ts";
 import { resolvePath } from "../../utils/paths.ts";
 import { createEventBus, type EventBus } from "../event-bus.ts";
 import type { ExecOptions } from "../exec.ts";
@@ -32,12 +18,14 @@ import { execCommand } from "../exec.ts";
 import { readPiManifest } from "../pi-manifest.ts";
 import { createSyntheticSourceInfo } from "../source-info.ts";
 import { time } from "../timings.ts";
+import type { ModelRouteRequest, VirtualModelDefinition } from "../virtual-models.ts";
 import type {
 	EntryRenderer,
 	Extension,
 	ExtensionAPI,
 	ExtensionFactory,
 	ExtensionRuntime,
+	ExtensionVirtualModel,
 	LoadExtensionsResult,
 	MarkdownTransformer,
 	MessageRenderer,
@@ -46,41 +34,29 @@ import type {
 	ToolDefinition,
 } from "./types.ts";
 
-/** Modules available to extensions via virtualModules (for compiled binaries) */
-const VIRTUAL_MODULES: Record<string, unknown> = {
-	typebox: _bundledTypebox,
-	"typebox/compile": _bundledTypeboxCompile,
-	"typebox/value": _bundledTypeboxValue,
-	"@sinclair/typebox": _bundledTypebox,
-	"@sinclair/typebox/compile": _bundledTypeboxCompile,
-	"@sinclair/typebox/value": _bundledTypeboxValue,
-	"@earendil-works/pi-agent-core": _bundledPiAgentCore,
-	"@earendil-works/pi-tui": _bundledPiTui,
-	// Extensions resolve the pi-ai root to the compat entrypoint (a strict
-	// superset of the core entrypoint): existing extensions using the old
-	// global API keep working at runtime until compat is removed.
-	"@earendil-works/pi-ai": _bundledPiAiCompat,
-	"@earendil-works/pi-ai/compat": _bundledPiAiCompat,
-	"@earendil-works/pi-ai/oauth": _bundledPiAiOauth,
-	"@earendil-works/pi-ai/providers/all": _bundledPiAiProviders,
-	"@earendil-works/pi-coding-agent": _bundledPiCodingAgent,
-	"@mariozechner/pi-agent-core": _bundledPiAgentCore,
-	"@mariozechner/pi-tui": _bundledPiTui,
-	"@mariozechner/pi-ai": _bundledPiAiCompat,
-	"@mariozechner/pi-ai/compat": _bundledPiAiCompat,
-	"@mariozechner/pi-ai/oauth": _bundledPiAiOauth,
-	"@mariozechner/pi-ai/providers/all": _bundledPiAiProviders,
-	"@mariozechner/pi-coding-agent": _bundledPiCodingAgent,
-};
-
 const require = createRequire(import.meta.url);
 
 const isNodeSeaBinary =
 	("sea" in process.features && process.features.sea === true) ||
 	process.getBuiltinModule("node:sea")?.isSea() === true;
-declare const PI_BUNDLED_NODE: boolean;
-const isBundledNode = typeof PI_BUNDLED_NODE !== "undefined" && PI_BUNDLED_NODE;
 const isTypeScriptSourceRuntime = !isBunBinary && path.extname(fileURLToPath(import.meta.url)) === ".ts";
+const usesEmbeddedModules = isBunBinary || isNodeSeaBinary || isBundledNode;
+
+let createJitiPromise: Promise<typeof createJiti> | undefined;
+
+function getCreateJiti(): Promise<typeof createJiti> {
+	createJitiPromise ??= (usesEmbeddedModules ? import("./jiti-static-loader.ts") : import("./jiti-loader.ts")).then(
+		(module) => module.createJiti,
+	);
+	return createJitiPromise;
+}
+
+let virtualModulesPromise: Promise<Record<string, unknown>> | undefined;
+
+function getVirtualModules(): Promise<Record<string, unknown>> {
+	virtualModulesPromise ??= import("./virtual-modules.ts").then((module) => module.VIRTUAL_MODULES);
+	return virtualModulesPromise;
+}
 
 /**
  * Get aliases for jiti (used in built Node.js mode).
@@ -207,6 +183,8 @@ export function createExtensionRuntime(): ExtensionRuntime {
 		flagValues: new Map(),
 		pendingProviderRegistrations: [],
 		pendingNativeProviderRegistrations: [],
+		pendingVirtualModelRegistrations: [],
+		createContext: notInitialized,
 		assertActive,
 		invalidate: (message) => {
 			if (state.staleMessage) return;
@@ -239,6 +217,14 @@ export function createExtensionRuntime(): ExtensionRuntime {
 			runtime.pendingProviderRegistrations = runtime.pendingProviderRegistrations.filter((r) => r.name !== name);
 			runtime.pendingNativeProviderRegistrations = runtime.pendingNativeProviderRegistrations.filter(
 				(r) => r.provider.id !== name,
+			);
+		},
+		registerVirtualModel: (definition, extensionPath = "<unknown>") => {
+			runtime.pendingVirtualModelRegistrations.push({ definition, extensionPath });
+		},
+		unregisterVirtualModel: (provider, id) => {
+			runtime.pendingVirtualModelRegistrations = runtime.pendingVirtualModelRegistrations.filter(
+				({ definition }) => definition.provider !== provider || definition.id !== id,
 			);
 		},
 	};
@@ -279,15 +265,30 @@ function createExtensionAPI(
 
 	const api = {
 		// Registration methods - write to extension
-		on(event: string, handler: HandlerFn): void {
+		on(event: string, handler: HandlerFn): () => void {
 			assertActive();
+			const registeredHandler: HandlerFn = (...args) => handler(...args);
 			const list = extension.handlers.get(event) ?? [];
-			list.push(handler);
+			list.push(registeredHandler);
 			extension.handlers.set(event, list);
+
+			return () => {
+				const handlers = extension.handlers.get(event);
+				if (!handlers) return;
+				const handlerIndex = handlers.indexOf(registeredHandler);
+				if (handlerIndex === -1) return;
+				handlers.splice(handlerIndex, 1);
+				if (handlers.length === 0) extension.handlers.delete(event);
+			};
 		},
 
 		registerTool(tool: ToolDefinition): void {
 			assertActive();
+			if (typeof tool.parameters !== "object" || tool.parameters === null || Array.isArray(tool.parameters)) {
+				throw new Error(
+					`Tool "${tool.name}" registered by extension "${extension.path}" must define an object parameter schema.`,
+				);
+			}
 			extension.tools.set(tool.name, {
 				definition: tool,
 				sourceInfo: extension.sourceInfo,
@@ -444,6 +445,22 @@ function createExtensionAPI(
 			applyRuntimeChange(() => runtime.unregisterProvider(name, extension.path));
 		},
 
+		registerVirtualModel<TState>(model: ExtensionVirtualModel<TState>) {
+			assertActive();
+			// Routing runs after the runner binds, so the context is created per request. The state
+			// comes from the session branch that this router wrote.
+			const definition: VirtualModelDefinition = {
+				...model,
+				route: (request) => model.route(request as ModelRouteRequest<TState>, runtime.createContext()),
+			};
+			applyRuntimeChange(() => runtime.registerVirtualModel(definition, extension.path));
+		},
+
+		unregisterVirtualModel(provider: string, id: string) {
+			assertActive();
+			applyRuntimeChange(() => runtime.unregisterVirtualModel(provider, id));
+		},
+
 		events: {
 			emit(channel, data) {
 				assertActive();
@@ -495,16 +512,18 @@ async function loadExtensionModule(extensionPath: string, cacheToken?: Extension
 		}
 	}
 
-	const jiti = createJiti(import.meta.url, {
+	const createJitiImpl = await getCreateJiti();
+	// Compiled binaries and the bundled Node distribution use embedded modules.
+	// Source TypeScript reuses host modules and root tsconfig paths. Unbundled
+	// Node builds use dist aliases and do not need the bundled virtual modules.
+	const resolutionOptions = usesEmbeddedModules
+		? { virtualModules: await getVirtualModules(), tryNative: false }
+		: isTypeScriptSourceRuntime
+			? { virtualModules: await getVirtualModules(), tsconfigPaths: true }
+			: { alias: getAliases() };
+	const jiti = createJitiImpl(import.meta.url, {
 		moduleCache: false,
-		// Compiled binaries and the bundled Node distribution use embedded modules.
-		// Source TypeScript reuses host modules and root tsconfig paths. Unbundled
-		// Node builds use dist aliases.
-		...(isBunBinary || isNodeSeaBinary || isBundledNode
-			? { virtualModules: VIRTUAL_MODULES, tryNative: false }
-			: isTypeScriptSourceRuntime
-				? { virtualModules: VIRTUAL_MODULES, tsconfigPaths: true }
-				: { alias: getAliases() }),
+		...resolutionOptions,
 	});
 
 	const module = await jiti.import(extensionPath, { default: true });
@@ -614,6 +633,7 @@ async function loadExtensionsInternal(
 ): Promise<LoadExtensionsResult> {
 	const extensions: Extension[] = [];
 	const errors: Array<{ path: string; error: string }> = [];
+	const warnings: Array<{ path: string; warning: string }> = [];
 	const cacheToken = useCache ? useExtensionCacheCwd(cwd) : undefined;
 	const resolvedCwd = cacheToken?.cwd ?? resolvePath(cwd);
 	const resolvedEventBus = eventBus ?? createEventBus();
@@ -641,6 +661,7 @@ async function loadExtensionsInternal(
 	return {
 		extensions,
 		errors,
+		warnings,
 		runtime: resolvedRuntime,
 	};
 }

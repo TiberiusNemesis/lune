@@ -1,17 +1,27 @@
 import type {
 	Api,
 	AssistantMessage,
+	AssistantMessageEventStream,
 	AuthResult,
+	ClassifierApi,
+	ClassifierContext,
+	ClassifierModel,
+	ClassifierResult,
 	Context,
 	Model,
 	ModelsApiStreamOptions,
+	ModelsClassifierOptions,
 	ModelsRefreshOptions,
 	ModelsRefreshResult,
+	ModelsSimpleStreamOptions,
+	ModelType,
+	ModelTypeMap,
 	Provider,
 	ProviderHeaders,
 } from "@earendil-works/pi-ai";
 import type { ModelRuntime } from "./model-runtime.ts";
 import type { AuthStatus, ProviderConfigInput } from "./provider-composer.ts";
+import type { VirtualModelDefinition } from "./virtual-models.ts";
 
 export type { ProviderConfigInput } from "./provider-composer.ts";
 export type ResolvedRequestAuth =
@@ -57,6 +67,15 @@ export class ModelRegistry {
 		return this.runtime.getModel(provider, modelId);
 	}
 
+	/** Find a model of a non-chat type, e.g. `findOfType("classifier", "typesafe", "jev-latest")`. */
+	findOfType<TType extends ModelType>(
+		type: TType,
+		provider: string,
+		modelId: string,
+	): ModelTypeMap[TType] | undefined {
+		return this.runtime.getModelOfType(type, provider, modelId);
+	}
+
 	hasConfiguredAuth(model: Model<Api>): boolean {
 		return this.runtime.hasConfiguredAuth(model.provider);
 	}
@@ -100,12 +119,35 @@ export class ModelRegistry {
 		return this.runtime.getProvider(provider);
 	}
 
+	/** Stream through the configured provider with request-time authentication. */
+	stream<TApi extends Api>(
+		model: Model<TApi>,
+		context: Context,
+		options?: ModelsApiStreamOptions<TApi>,
+	): AssistantMessageEventStream {
+		return this.runtime.stream(model, context, options);
+	}
+
+	/** Stream with provider-neutral options and request-time authentication. */
+	streamSimple(model: Model<Api>, context: Context, options?: ModelsSimpleStreamOptions): AssistantMessageEventStream {
+		return this.runtime.streamSimple(model, context, options);
+	}
+
 	complete<TApi extends Api>(
 		model: Model<TApi>,
 		context: Context,
 		options?: ModelsApiStreamOptions<TApi>,
 	): Promise<AssistantMessage> {
 		return this.runtime.complete(model, context, options);
+	}
+
+	/** Classify structured state with request-time authentication. Never rejects. */
+	classify(
+		model: ClassifierModel<ClassifierApi>,
+		context: ClassifierContext,
+		options?: ModelsClassifierOptions,
+	): Promise<ClassifierResult> {
+		return this.runtime.classify(model, context, options);
 	}
 
 	getProviderDisplayName(provider: string): string {
@@ -141,6 +183,14 @@ export class ModelRegistry {
 
 	unregisterProvider(providerName: string): void {
 		this.runtime.unregisterProvider(providerName);
+	}
+
+	registerVirtualModel(definition: VirtualModelDefinition): void {
+		this.runtime.registerVirtualModel(definition);
+	}
+
+	unregisterVirtualModel(providerName: string, id: string): void {
+		this.runtime.unregisterVirtualModel(providerName, id);
 	}
 
 	getRegisteredProviderConfig(providerName: string): ProviderConfigInput | undefined {
