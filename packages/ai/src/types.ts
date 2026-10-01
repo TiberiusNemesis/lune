@@ -49,6 +49,7 @@ export type KnownProvider =
 	| "typesafe"
 	| "nvidia"
 	| "deepseek"
+	| "lithosai"
 	| "github-copilot"
 	| "xai"
 	| "groq"

@@ -3034,6 +3034,62 @@ async function generateModels() {
 	];
 	allModels.push(...deepseekModels);
 
+	// Lithos publishes per-model rates only in its console, not on the API or in the docs.
+	const lithosCompat: OpenAICompletionsCompat = {
+		supportsStore: false,
+		supportsDeveloperRole: false,
+		supportsReasoningEffort: true,
+		maxTokensField: "max_tokens",
+		requiresReasoningContentOnAssistantMessages: true,
+		thinkingFormat: "deepseek",
+		supportsLongCacheRetention: false,
+	};
+	const lithosModels: Model<"openai-completions">[] = [
+		{
+			id: "deepseek-ai/DeepSeek-V4.1-Flash",
+			name: "DeepSeek V4.1 Flash",
+			api: "openai-completions",
+			baseUrl: "https://api.lithosai.cloud/v1",
+			provider: "lithosai",
+			reasoning: true,
+			thinkingLevelMap: DEEPSEEK_V4_FLASH_THINKING_LEVEL_MAP,
+			input: ["text", "image"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 1048576,
+			maxTokens: 384000,
+			compat: lithosCompat,
+		},
+		{
+			id: "deepseek-ai/DeepSeek-V4.1-Flash-fast",
+			name: "DeepSeek V4.1 Flash Fast",
+			api: "openai-completions",
+			baseUrl: "https://api.lithosai.cloud/v1",
+			provider: "lithosai",
+			reasoning: true,
+			thinkingLevelMap: DEEPSEEK_V4_FLASH_THINKING_LEVEL_MAP,
+			input: ["text", "image"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 1048576,
+			maxTokens: 384000,
+			compat: lithosCompat,
+		},
+		{
+			id: "deepseek-ai/DeepSeek-V4.1-Flash-ultra",
+			name: "DeepSeek V4.1 Flash Ultra",
+			api: "openai-completions",
+			baseUrl: "https://api.lithosai.cloud/v1",
+			provider: "lithosai",
+			reasoning: true,
+			thinkingLevelMap: DEEPSEEK_V4_FLASH_THINKING_LEVEL_MAP,
+			input: ["text", "image"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 1048576,
+			maxTokens: 384000,
+			compat: lithosCompat,
+		},
+	];
+	allModels.push(...lithosModels);
+
 	const antLingCompat: OpenAICompletionsCompat = {
 		supportsStore: false,
 		supportsDeveloperRole: false,

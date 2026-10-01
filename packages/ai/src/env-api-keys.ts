@@ -76,6 +76,11 @@ function getApiKeyEnvVars(provider: string): readonly string[] | undefined {
 		return [ANTHROPIC_AUTH_TOKEN_ENV, ANTHROPIC_OAUTH_TOKEN_ENV, ANTHROPIC_API_KEY_ENV];
 	}
 
+	// LITHOS_AI_KEY is the name used locally. LITHOSAI_API_KEY is the name in Lithos's docs.
+	if (provider === "lithosai") {
+		return ["LITHOS_AI_KEY", "LITHOSAI_API_KEY"];
+	}
+
 	const envMap: Record<string, string> = {
 		"ant-ling": "ANT_LING_API_KEY",
 		"qwen-token-plan": "QWEN_TOKEN_PLAN_API_KEY",

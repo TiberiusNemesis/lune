@@ -67,6 +67,7 @@ Unified LLM API with provider collections, automatic auth resolution, token and 
 - **Radius** (API key or OAuth, with a dynamically refreshed gateway catalog)
 - **TypeSafe** (System One classifier API)
 - **DeepSeek**
+- **LithosAI** (OpenAI Chat Completions at `https://api.lithosai.cloud/v1`)
 - **NVIDIA NIM**
 - **Anthropic**
 - **Google**
@@ -465,6 +466,7 @@ Built-in providers resolve these env vars (Node.js; in browsers pass `apiKey` ex
 | Radius | `RADIUS_API_KEY` |
 | TypeSafe | `TYPESAFE_API_KEY` |
 | DeepSeek | `DEEPSEEK_API_KEY` |
+| LithosAI | `LITHOS_AI_KEY` or `LITHOSAI_API_KEY` |
 | NVIDIA NIM | `NVIDIA_API_KEY` |
 | Google | `GEMINI_API_KEY` |
 | Vertex AI | `GOOGLE_CLOUD_API_KEY` or `GOOGLE_CLOUD_PROJECT` (or `GCLOUD_PROJECT`) + `GOOGLE_CLOUD_LOCATION` + ADC |

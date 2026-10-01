@@ -711,6 +711,10 @@ describe("default model selection", () => {
 		expect(defaultModelPerProvider["openai-codex"]).toBe("gpt-5.5");
 	});
 
+	test("lithosai defaults to DeepSeek V4.1 Flash", () => {
+		expect(defaultModelPerProvider.lithosai).toBe("deepseek-ai/DeepSeek-V4.1-Flash");
+	});
+
 	test("zai, minimax, cerebras, and ant-ling defaults track current models", () => {
 		expect(defaultModelPerProvider.zai).toBe("glm-5.3");
 		expect(defaultModelPerProvider["zai-coding-cn"]).toBe("glm-5.3");

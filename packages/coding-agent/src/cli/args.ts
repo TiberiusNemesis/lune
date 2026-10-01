@@ -406,6 +406,7 @@ ${chalk.bold("Environment Variables:")}
   AZURE_OPENAI_API_VERSION         - Azure OpenAI API version (default: v1)
   AZURE_OPENAI_DEPLOYMENT_NAME_MAP - Azure OpenAI model=deployment map (comma-separated)
   DEEPSEEK_API_KEY                 - DeepSeek API key
+  LITHOS_AI_KEY                    - LithosAI API key (LITHOSAI_API_KEY also works)
   NVIDIA_API_KEY                   - NVIDIA NIM API key
   GEMINI_API_KEY                   - Google Gemini API key
   GROQ_API_KEY                     - Groq API key

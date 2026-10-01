@@ -113,4 +113,36 @@ describe("environment API keys", () => {
 
 		expect(getEnvApiKey("anthropic")).toBe("api-key");
 	});
+
+	it("resolves LithosAI from LITHOS_AI_KEY before LITHOSAI_API_KEY", () => {
+		const previousLocal = process.env.LITHOS_AI_KEY;
+		const previousDocs = process.env.LITHOSAI_API_KEY;
+		process.env.LITHOS_AI_KEY = "local-key";
+		process.env.LITHOSAI_API_KEY = "docs-key";
+		try {
+			expect(findEnvKeys("lithosai")).toEqual(["LITHOS_AI_KEY", "LITHOSAI_API_KEY"]);
+			expect(getEnvApiKey("lithosai")).toBe("local-key");
+		} finally {
+			if (previousLocal === undefined) delete process.env.LITHOS_AI_KEY;
+			else process.env.LITHOS_AI_KEY = previousLocal;
+			if (previousDocs === undefined) delete process.env.LITHOSAI_API_KEY;
+			else process.env.LITHOSAI_API_KEY = previousDocs;
+		}
+	});
+
+	it("falls back to LITHOSAI_API_KEY when LITHOS_AI_KEY is unset", () => {
+		const previousLocal = process.env.LITHOS_AI_KEY;
+		const previousDocs = process.env.LITHOSAI_API_KEY;
+		delete process.env.LITHOS_AI_KEY;
+		process.env.LITHOSAI_API_KEY = "docs-key";
+		try {
+			expect(findEnvKeys("lithosai")).toEqual(["LITHOSAI_API_KEY"]);
+			expect(getEnvApiKey("lithosai")).toBe("docs-key");
+		} finally {
+			if (previousLocal === undefined) delete process.env.LITHOS_AI_KEY;
+			else process.env.LITHOS_AI_KEY = previousLocal;
+			if (previousDocs === undefined) delete process.env.LITHOSAI_API_KEY;
+			else process.env.LITHOSAI_API_KEY = previousDocs;
+		}
+	});
 });

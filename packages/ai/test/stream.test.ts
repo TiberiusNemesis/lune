@@ -757,7 +757,7 @@ describe("Generate E2E Tests", () => {
 	});
 
 	describe.skipIf(!process.env.TOGETHER_API_KEY)("Together AI Provider (Kimi-K2.6 via OpenAI Completions)", () => {
-		const llm = getModel("together", "moonshotai/Kimi-K2.6");
+		const llm = getModel("together", "moonshotai/Kimi-K3");
 
 		it("should complete basic text generation", { retry: 3 }, async () => {
 			await basicTextGeneration(llm);
@@ -1304,6 +1304,33 @@ describe("Generate E2E Tests", () => {
 			await multiTurn(llm, thinkingOptions);
 		});
 	});
+
+	describe.skipIf(!process.env.LITHOS_AI_KEY && !process.env.LITHOSAI_API_KEY)(
+		"LithosAI Provider (DeepSeek V4.1 Flash via OpenAI Completions)",
+		() => {
+			const llm = getModel("lithosai", "deepseek-ai/DeepSeek-V4.1-Flash");
+
+			it("should complete basic text generation", { retry: 3 }, async () => {
+				await basicTextGeneration(llm);
+			});
+
+			it("should handle tool calling", { retry: 3 }, async () => {
+				await handleToolCall(llm);
+			});
+
+			it("should handle streaming", { retry: 3 }, async () => {
+				await handleStreaming(llm);
+			});
+
+			it("should handle thinking mode", { retry: 3 }, async () => {
+				await handleThinking(llm, { reasoningEffort: "high" });
+			});
+
+			it("should handle multi-turn with thinking and tools", { retry: 3 }, async () => {
+				await multiTurn(llm, { reasoningEffort: "high" });
+			});
+		},
+	);
 
 	describe.skipIf(!process.env.ANT_LING_API_KEY)("Ant Ling Provider (Ling 2.6 Flash via OpenAI Completions)", () => {
 		const llm = getModel("ant-ling", "Ling-2.6-flash");
