@@ -48,6 +48,8 @@ import {
 	type TUI,
 	TuiAltScreen,
 	TuiMainScreen,
+	type TuiMouseEvent,
+	type TuiMouseEventResult,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 import chalk from "chalk";
@@ -153,6 +155,7 @@ import {
 	OAuthSelectorComponent,
 } from "./components/oauth-selector.ts";
 import { piLogoLines } from "./components/pi-logo.ts";
+import { playPiLogoAnimation } from "./components/pi-logo-animation.lazy.ts";
 import { ScopedModelsSelectorComponent } from "./components/scoped-models-selector.ts";
 import { SessionSelectorComponent } from "./components/session-selector.ts";
 import { SettingsSelectorComponent } from "./components/settings-selector.ts";
@@ -240,6 +243,17 @@ class ExpandableText extends ThemedText implements Expandable {
 	setExpanded(expanded: boolean): void {
 		this.state.expanded = expanded;
 		this.invalidate();
+	}
+}
+
+/** The built-in header. Clicking its logo (the first two lines, after one column of padding) plays an easter egg. */
+class BuiltInHeader extends ExpandableText {
+	onLogoClick: ((column: number, row: number) => void) | undefined;
+
+	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+		if (event.type !== "click" || event.y > 1 || event.x < 1 || event.x > 4 || !this.onLogoClick) return undefined;
+		this.onLogoClick(event.screenX - event.x + 1, event.screenY - event.y);
+		return { handled: true };
 	}
 }
 
@@ -590,6 +604,7 @@ export class InteractiveMode {
 			terminal: options.terminal,
 			onRightClickPaste: this.onRightClickPaste,
 			fullscreenCopyOnSelect: this.settingsManager.getFullscreenCopyOnSelect(),
+			fullscreenWheelScrollLines: this.settingsManager.getFullscreenWheelScrollLines(),
 		});
 		this.ui = createInteractiveTuiReference(() => this.renderer);
 		this.ui.setClearOnShrink(this.settingsManager.getClearOnShrink());
@@ -637,7 +652,8 @@ export class InteractiveMode {
 	}
 
 	private getAutocompleteSourceTag(sourceInfo?: SourceInfo): string | undefined {
-		if (!sourceInfo) {
+		// Built-in extension commands are untagged, like built-in commands.
+		if (!sourceInfo || sourceInfo.source === "builtin") {
 			return undefined;
 		}
 
@@ -876,6 +892,7 @@ export class InteractiveMode {
 			terminal,
 			onRightClickPaste: this.onRightClickPaste,
 			fullscreenCopyOnSelect: this.settingsManager.getFullscreenCopyOnSelect(),
+			fullscreenWheelScrollLines: this.settingsManager.getFullscreenWheelScrollLines(),
 		});
 		nextUi.setClearOnShrink(clearOnShrink);
 		nextUi.onDebug = onDebug;
@@ -1013,13 +1030,15 @@ export class InteractiveMode {
 				theme.fg("dim", `Press ${keyText("app.tools.expand")} to show full startup help and loaded resources.`);
 			const onboarding = () =>
 				theme.fg("dim", `Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.`);
-			this.builtInHeader = new ExpandableText(
+			const header = new BuiltInHeader(
 				() => `${withLogo(compactInstructions())}\n${compactOnboarding()}\n\n${onboarding()}`,
 				() => `${withLogo(expandedInstructions())}\n\n${onboarding()}`,
 				this.getStartupExpansionState(),
 				1,
 				0,
 			);
+			header.onLogoClick = (column, row) => playPiLogoAnimation(this.renderer, column, row);
+			this.builtInHeader = header;
 
 			// Setup UI layout
 			this.headerContainer.addChild(new Spacer(1));
@@ -1995,6 +2014,7 @@ export class InteractiveMode {
 		this.applyFullscreenScrollbarSetting();
 		if (this.renderer instanceof TuiAltScreen) {
 			this.renderer.setCopyOnSelect(this.settingsManager.getFullscreenCopyOnSelect());
+			this.renderer.setWheelScrollLines(this.settingsManager.getFullscreenWheelScrollLines());
 		}
 		this.footer.setSession(this.session);
 		this.footer.setAutoCompactEnabled(this.session.autoCompactionEnabled);
@@ -3495,6 +3515,8 @@ export class InteractiveMode {
 				break;
 
 			case "tool_execution_start": {
+				// Nested calls (from codemode scripts) are shown inside their parent's row.
+				if (event.parentToolCallId) break;
 				let component = this.pendingTools.get(event.toolCallId);
 				if (!component) {
 					component = new ToolExecutionComponent(
@@ -4816,6 +4838,7 @@ export class InteractiveMode {
 					fullscreenExitOutput: this.settingsManager.getFullscreenExitOutput(),
 					fullscreenScrollbar: this.settingsManager.getFullscreenScrollbar(),
 					fullscreenCopyOnSelect: this.settingsManager.getFullscreenCopyOnSelect(),
+					fullscreenWheelScrollLines: this.settingsManager.getFullscreenWheelScrollLines(),
 					warnings: this.settingsManager.getWarnings(),
 				},
 				{
@@ -4995,6 +5018,10 @@ export class InteractiveMode {
 					onFullscreenCopyOnSelectChange: (enabled) => {
 						this.settingsManager.setFullscreenCopyOnSelect(enabled);
 						if (this.renderer instanceof TuiAltScreen) this.renderer.setCopyOnSelect(enabled);
+					},
+					onFullscreenWheelScrollLinesChange: (lines) => {
+						this.settingsManager.setFullscreenWheelScrollLines(lines);
+						if (this.renderer instanceof TuiAltScreen) this.renderer.setWheelScrollLines(lines);
 					},
 					onWarningsChange: (warnings) => {
 						this.settingsManager.setWarnings(warnings);
@@ -6152,11 +6179,16 @@ export class InteractiveMode {
 		providerId: string,
 		method: "api_key" | "oauth",
 	): Promise<void> {
-		await this.session.modelRuntime.login(providerId, method, {
-			signal: dialog.signal,
-			prompt: (prompt) => this.showAuthPrompt(dialog, prompt),
-			notify: (event) => this.notifyAuthDialog(dialog, event),
-		});
+		await this.session.modelRuntime.login(
+			providerId,
+			method,
+			{
+				signal: dialog.signal,
+				prompt: (prompt) => this.showAuthPrompt(dialog, prompt),
+				notify: (event) => this.notifyAuthDialog(dialog, event),
+			},
+			{ getDeviceId: () => this.settingsManager.getOrCreateDeviceId() },
+		);
 	}
 
 	private async showLoginDialog(providerId: string, providerName: string): Promise<void> {
